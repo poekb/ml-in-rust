@@ -24,7 +24,7 @@ This project is a simple neural network library built from scratch in Rust, with
 -   **CUDA Toolkit:** The NVIDIA CUDA Toolkit must be installed. The build script relies on the `nvcc` compiler and the `CUDA_HOME` environment variable. You can download it from the [NVIDIA Developer](https://developer.nvidia.com/cuda-downloads) website.
 -   **MNIST Dataset:** The dataset is included in the git repo for demonstrating just how fast a network can be trained for >97% accuracy
 
-    You can get the files from [Yann LeCun's website](http://yann.lecun.com/exdb/mnist/).
+    [MNIST](https://www.kaggle.com/datasets/hojjatk/mnist-dataset).
 
 ## How to Run
 
