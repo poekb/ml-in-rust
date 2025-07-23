@@ -31,7 +31,7 @@ This project is a simple neural network library built from scratch in Rust, with
 
 1.  **Clone the repository:**
     ```bash
-    git clone <your-repo-url>
+    git clone git@github.com:poekb/ml-in-rust.git
     cd gpu-accelerated-machine-learning
     ```
 

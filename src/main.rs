@@ -5,6 +5,7 @@ use machine_learning_lib::{
         activation::{ActivationLayer, RELU, SIGMOID},
         conv_2d::Conv2DLayer,
         dense::DenseLayer,
+        max_pool_2d::MaxPool2DLayer,
         optimizer::StochasticGradientDescent,
     },
 };
@@ -32,27 +33,24 @@ fn main() {
     let data = loader.load_data();
 
     let optimizer: Box<dyn machine_learning_lib::layers::optimizer::Optimizer> =
-        Box::new(StochasticGradientDescent::new(0.025));
+        Box::new(StochasticGradientDescent::new(0.01));
 
     match data {
-        Ok(((train_images, train_labels), (test_images, test_labels))) => {
-            // Randomly rearrange the training data
+        Ok(((train_images, train_labels), (test_images, test_labels))) => loop {
             let mut rng = rand::rng();
             let mut indices: Vec<usize> = (0..train_images.len()).collect();
             indices.shuffle(&mut rng);
             let train_images: Vec<_> = indices.iter().map(|&i| train_images[i].clone()).collect();
             let train_labels: Vec<_> = indices.iter().map(|&i| train_labels[i]).collect();
 
-            // Convert training data to Vec<Vec<f32>>
             let train_x: Vec<Vec<f32>> = train_images
                 .iter()
                 .map(|img| img.iter().map(|&v| v as f32 / 255.0).collect())
                 .collect();
             let train_y: Vec<u8> = train_labels.clone();
 
-            // Mini-batch training using neural_network methods
-            let batch_size = 32;
-            let epochs = 15;
+            let batch_size = 16;
+            let epochs = 10;
             for epoch in 0..epochs {
                 for batch_start in (0..train_x.len()).step_by(batch_size) {
                     let batch_end = (batch_start + batch_size).min(train_x.len());
@@ -101,25 +99,34 @@ fn main() {
             }
             let accuracy = correct as f32 / test_x.len() as f32;
 
-            println!("Training complete. Test accuracy: {:.2}%", accuracy * 100.0)
-        }
+            println!("Training complete. Test accuracy: {:.2}%", accuracy * 100.0);
+
+            println!("Press Enter to continue...");
+            let mut input = String::new();
+            std::io::stdin().read_line(&mut input).unwrap();
+        },
         Err(e) => println!("Error loading data: {}", e),
     }
 }
 
 pub fn create_network() -> Result<layers::LayerWrapper, Box<dyn std::error::Error>> {
     let network = layers::LayerWrapper::new(layers::network::NeuralNetwork::boxed(vec![
-        Conv2DLayer::boxed(1, 28, 28, 5, 5, 32, layers::dense::xavier_initializer),
-        ActivationLayer::boxed(RELU, 24 * 24 * 32),
-        Conv2DLayer::boxed(32, 24, 24, 5, 5, 20, layers::dense::xavier_initializer),
-        ActivationLayer::boxed(RELU, 20 * 20 * 20),
-        Conv2DLayer::boxed(20, 20, 20, 5, 5, 16, layers::dense::xavier_initializer),
-        ActivationLayer::boxed(RELU, 16 * 16 * 16),
-        DenseLayer::boxed(16 * 16 * 16, 256, layers::dense::xavier_initializer),
-        ActivationLayer::boxed(RELU, 256),
-        DenseLayer::boxed(256, 128, layers::dense::xavier_initializer),
-        ActivationLayer::boxed(RELU, 128),
-        DenseLayer::boxed(128, 10, layers::dense::he_initializer),
+        // Block 1: First Convolution + Pooling
+        // Input: 1x28x28
+        Conv2DLayer::boxed(1, 28, 28, 5, 5, 20, layers::dense::xavier_initializer), // Output: 20x24x24
+        ActivationLayer::boxed(RELU, 20 * 24 * 24),
+        MaxPool2DLayer::boxed(20, 24, 24, 2, 2), // Output: 20x12x12
+        // Block 2: Second Convolution + Pooling
+        Conv2DLayer::boxed(20, 12, 12, 5, 5, 50, layers::dense::xavier_initializer), // Output: 50x8x8
+        ActivationLayer::boxed(RELU, 50 * 8 * 8),
+        MaxPool2DLayer::boxed(50, 8, 8, 2, 2), // Output: 50x4x4
+        // Block 3: Fully Connected Layers
+        // The transition to a DenseLayer implicitly flattens the 50x4x4 output.
+        // Input size to dense layer: 50 * 4 * 4 = 800
+        DenseLayer::boxed(800, 500, layers::dense::xavier_initializer),
+        ActivationLayer::boxed(RELU, 500),
+        // Output Layer
+        DenseLayer::boxed(500, 10, layers::dense::he_initializer),
         ActivationLayer::boxed(SIGMOID, 10),
     ]))?;
     Ok(network)

@@ -6,6 +6,7 @@ use cust::{
 pub mod activation;
 pub mod conv_2d;
 pub mod dense;
+pub mod max_pool_2d;
 pub mod network;
 pub mod optimizer;
 
