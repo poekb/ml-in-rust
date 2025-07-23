@@ -4,6 +4,7 @@ use cust::{
 };
 
 pub mod activation;
+pub mod conv_2d;
 pub mod dense;
 pub mod network;
 pub mod optimizer;

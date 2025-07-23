@@ -2,7 +2,9 @@ use machine_learning_lib::{
     init_cuda,
     layers::{
         self,
-        activation::{RELU, SIGMOID},
+        activation::{ActivationLayer, RELU, SIGMOID},
+        conv_2d::Conv2DLayer,
+        dense::DenseLayer,
         optimizer::StochasticGradientDescent,
     },
 };
@@ -107,12 +109,18 @@ fn main() {
 
 pub fn create_network() -> Result<layers::LayerWrapper, Box<dyn std::error::Error>> {
     let network = layers::LayerWrapper::new(layers::network::NeuralNetwork::boxed(vec![
-        layers::dense::DenseLayer::boxed(784, 1024, layers::dense::xavier_initializer),
-        layers::activation::ActivationLayer::boxed(RELU, 1024),
-        layers::dense::DenseLayer::boxed(1024, 512, layers::dense::xavier_initializer),
-        layers::activation::ActivationLayer::boxed(RELU, 512),
-        layers::dense::DenseLayer::boxed(512, 10, layers::dense::xavier_initializer),
-        layers::activation::ActivationLayer::boxed(SIGMOID, 10),
+        Conv2DLayer::boxed(1, 28, 28, 5, 5, 32, layers::dense::xavier_initializer),
+        ActivationLayer::boxed(RELU, 24 * 24 * 32),
+        Conv2DLayer::boxed(32, 24, 24, 5, 5, 20, layers::dense::xavier_initializer),
+        ActivationLayer::boxed(RELU, 20 * 20 * 20),
+        Conv2DLayer::boxed(20, 20, 20, 5, 5, 16, layers::dense::xavier_initializer),
+        ActivationLayer::boxed(RELU, 16 * 16 * 16),
+        DenseLayer::boxed(16 * 16 * 16, 256, layers::dense::xavier_initializer),
+        ActivationLayer::boxed(RELU, 256),
+        DenseLayer::boxed(256, 128, layers::dense::xavier_initializer),
+        ActivationLayer::boxed(RELU, 128),
+        DenseLayer::boxed(128, 10, layers::dense::he_initializer),
+        ActivationLayer::boxed(SIGMOID, 10),
     ]))?;
     Ok(network)
 }

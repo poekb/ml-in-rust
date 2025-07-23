@@ -16,6 +16,7 @@ This project is a simple neural network library built from scratch in Rust, with
     -   ReLU and Sigmoid activation functions.
     -   Xavier weight initialization.
     -   Stochastic Gradient Descent (SGD) optimizer.
+    -   2D Convolutional layers (in progress).
 
 ## Prerequisites
 
@@ -46,7 +47,6 @@ The program will build the CUDA kernels, create the neural network, train it on 
 -   Support for serialization and deserialization of the model.
 -   More advanced optimizers (e.g., Adam, RMSprop).
 -   Support for dropout and batch normalization layers.
--   Support for more complex architectures (e.g., convolutional layers).
 
 ## Project Structure
 

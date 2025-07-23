@@ -17,31 +17,32 @@ pub struct DenseLayer {
     module: Module,
 }
 
-pub fn xavier_initializer(input_size: usize, output_size: usize) -> Vec<f32> {
+pub fn xavier_initializer(input_size: usize, output_size: usize, count: usize) -> Vec<f32> {
     let limit = (6.0 / (input_size + output_size) as f32).sqrt();
     let dist = Uniform::new(-limit, limit).unwrap();
     let mut rng = rand::rng();
-    (0..input_size * output_size)
-        .map(|_| dist.sample(&mut rng))
-        .collect()
+    (0..count).map(|_| dist.sample(&mut rng)).collect()
 }
 
-pub fn ha_initializer(input_size: usize, output_size: usize) -> Vec<f32> {
+pub fn he_initializer(input_size: usize, output_size: usize, count: usize) -> Vec<f32> {
     let limit = (2.0 / (input_size + output_size) as f32).sqrt();
     let dist = Uniform::new(-limit, limit).unwrap();
     let mut rng = rand::rng();
-    (0..input_size * output_size)
-        .map(|_| dist.sample(&mut rng))
-        .collect()
+    (0..count).map(|_| dist.sample(&mut rng)).collect()
 }
 
 impl DenseLayer {
     pub fn new(
         input_size: usize,
         output_size: usize,
-        initializer: fn(usize, usize) -> Vec<f32>,
+        initializer: fn(usize, usize, usize) -> Vec<f32>,
     ) -> Self {
-        let weights = DeviceBuffer::from_slice(&initializer(input_size, output_size)).unwrap();
+        let weights = DeviceBuffer::from_slice(&initializer(
+            input_size,
+            output_size,
+            input_size * output_size,
+        ))
+        .unwrap();
         let biases = DeviceBuffer::from_slice(&vec![0.0f32; output_size]).unwrap();
         let weights_gradient =
             DeviceBuffer::from_slice(&vec![0.0f32; input_size * output_size]).unwrap();
@@ -62,7 +63,7 @@ impl DenseLayer {
     pub fn boxed(
         input_size: usize,
         output_size: usize,
-        initializer: fn(usize, usize) -> Vec<f32>,
+        initializer: fn(usize, usize, usize) -> Vec<f32>,
     ) -> Box<Self> {
         Box::new(Self::new(input_size, output_size, initializer))
     }
