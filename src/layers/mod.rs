@@ -1,3 +1,5 @@
+use std::{thread::sleep, time::Duration};
+
 use cust::{
     memory::{CopyDestination, DeviceBuffer},
     stream::Stream,
@@ -70,16 +72,26 @@ impl LayerWrapper {
         stream.synchronize()?;
         let mut result = vec![0.0f32; self.layer.get_output_size()];
         self.output_buffer.copy_to(result.as_mut_slice())?;
+        result = result.iter().map(|&x| x.exp()).collect::<Vec<f32>>();
+        let sum: f32 = result.iter().sum();
+        result = result.iter().map(|&x| x / sum).collect::<Vec<f32>>();
         Ok(result)
     }
 
     pub fn back_propagate(&mut self, target: &Vec<f32>) -> Result<(), Box<dyn std::error::Error>> {
         let mut output = vec![0.0f32; self.layer.get_output_size()];
         self.output_buffer.copy_to(output.as_mut_slice())?;
+
+        // Gradient for Softmax with Cross-Entropy Loss is (prediction - target)
+        // The output however is not the Softmax output, so first we need to apply the softmax function to the output here on the cpu side.
+        let output = output.iter().map(|&x| x.exp()).collect::<Vec<f32>>();
+        let sum: f32 = output.iter().sum();
+        let output: Vec<f32> = output.iter().map(|&x| x / sum).collect();
+
         let output_gradient = output
             .iter()
             .zip(target.iter())
-            .map(|(o, t)| 2.0 * (o - t))
+            .map(|(o, t)| o - t)
             .collect::<Vec<f32>>();
         self.output_gradient_buffer.copy_from(&output_gradient)?;
         let stream = Stream::new(cust::stream::StreamFlags::DEFAULT, None)?;

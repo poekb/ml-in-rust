@@ -21,6 +21,7 @@ impl NeuralNetwork {
             if i == layers.len() - 1 {
                 break;
             }
+            assert_eq!(layer.get_output_size(), layers[i + 1].get_input_size());
             input_buffers
                 .push(DeviceBuffer::from_slice(&vec![0.0f32; layer.get_output_size()]).unwrap());
             gradient_buffers

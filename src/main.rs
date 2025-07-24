@@ -2,7 +2,7 @@ use machine_learning_lib::{
     init_cuda,
     layers::{
         self,
-        activation::{ActivationLayer, RELU, SIGMOID},
+        activation::{ActivationLayer, RELU},
         conv_2d::Conv2DLayer,
         dense::DenseLayer,
         max_pool_2d::MaxPool2DLayer,
@@ -33,7 +33,7 @@ fn main() {
     let data = loader.load_data();
 
     let optimizer: Box<dyn machine_learning_lib::layers::optimizer::Optimizer> =
-        Box::new(StochasticGradientDescent::new(0.01));
+        Box::new(StochasticGradientDescent::new(0.05));
 
     match data {
         Ok(((train_images, train_labels), (test_images, test_labels))) => loop {
@@ -49,7 +49,7 @@ fn main() {
                 .collect();
             let train_y: Vec<u8> = train_labels.clone();
 
-            let batch_size = 16;
+            let batch_size = 32;
             let epochs = 10;
             for epoch in 0..epochs {
                 for batch_start in (0..train_x.len()).step_by(batch_size) {
@@ -64,12 +64,11 @@ fn main() {
                         let output = network.infer(&x).unwrap();
 
                         network.back_propagate(&target).unwrap();
-                        let cost = output
-                            .iter()
-                            .zip(target.iter())
-                            .map(|(o, t)| (o - t).powi(2))
-                            .sum::<f32>()
-                            .sqrt();
+
+                        // Calculate Cross-Entropy cost for the current sample.
+                        // Cost = -log(predicted_probability_of_correct_class)
+                        // We add a small epsilon for numerical stability to avoid log(0).
+                        let cost = -(output[y as usize].max(1e-9)).ln();
                         cost_sum += cost;
                     }
                     network.optimize(&optimizer).unwrap();
@@ -81,25 +80,25 @@ fn main() {
                     let average_cost = cost_sum / batch_size as f32;
                     println!("Epoch {}: Batch average cost: {:.2}", epoch, average_cost);
                 }
-            }
 
-            let test_x: Vec<Vec<f32>> = test_images
-                .iter()
-                .map(|img| img.iter().map(|&v| v as f32 / 255.0).collect())
-                .collect();
-            let test_y: Vec<u8> = test_labels.clone();
+                let test_x: Vec<Vec<f32>> = test_images
+                    .iter()
+                    .map(|img| img.iter().map(|&v| v as f32 / 255.0).collect())
+                    .collect();
+                let test_y: Vec<u8> = test_labels.clone();
 
-            let mut correct = 0;
-            for (img, &label) in test_x.iter().zip(test_y.iter()) {
-                let output = network.infer(&img).unwrap();
-                let prediction = nalgebra::DVector::from_vec(output).argmax().0 as u8;
-                if prediction == label {
-                    correct += 1;
+                let mut correct = 0;
+                for (img, &label) in test_x.iter().zip(test_y.iter()) {
+                    let output = network.infer(&img).unwrap();
+                    let prediction = nalgebra::DVector::from_vec(output).argmax().0 as u8;
+                    if prediction == label {
+                        correct += 1;
+                    }
                 }
-            }
-            let accuracy = correct as f32 / test_x.len() as f32;
+                let accuracy = correct as f32 / test_x.len() as f32;
 
-            println!("Training complete. Test accuracy: {:.2}%", accuracy * 100.0);
+                println!("Training complete. Test accuracy: {:.2}%", accuracy * 100.0);
+            }
 
             println!("Press Enter to continue...");
             let mut input = String::new();
@@ -127,7 +126,6 @@ pub fn create_network() -> Result<layers::LayerWrapper, Box<dyn std::error::Erro
         ActivationLayer::boxed(RELU, 500),
         // Output Layer
         DenseLayer::boxed(500, 10, layers::dense::he_initializer),
-        ActivationLayer::boxed(SIGMOID, 10),
     ]))?;
     Ok(network)
 }

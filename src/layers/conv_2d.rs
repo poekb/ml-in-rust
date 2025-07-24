@@ -13,10 +13,10 @@ pub struct Conv2DLayer {
     kernel_dim_x: usize,
     kernel_dim_y: usize,
     kernel_count: usize,
-    kernel_parameters: DeviceBuffer<f32>,
-    bias_parameters: DeviceBuffer<f32>,
-    kernel_gradient: DeviceBuffer<f32>,
-    bias_gradient: DeviceBuffer<f32>,
+    pub kernel_parameters: DeviceBuffer<f32>,
+    pub bias_parameters: DeviceBuffer<f32>,
+    pub kernel_gradient: DeviceBuffer<f32>,
+    pub bias_gradient: DeviceBuffer<f32>,
     gradient_count: usize,
 
     input_size: usize,
@@ -40,7 +40,7 @@ impl Conv2DLayer {
             kernel_count * (input_dim_x - kernel_dim_x + 1) * (input_dim_y - kernel_dim_y + 1);
 
         let kernel_parameter_count = kernel_dim_x * kernel_dim_y * input_depth * kernel_count;
-        let bias_parameter_count = output_size;
+        let bias_parameter_count = kernel_count;
 
         let fan_in = input_depth * kernel_dim_x * kernel_dim_y;
         let fan_out = kernel_count * kernel_dim_x * kernel_dim_y;
@@ -194,15 +194,17 @@ impl Layer for Conv2DLayer {
         }
 
         // 3. Compute bias gradient (dL/dB)
-        let output_grid_size = (self.output_size as u32 + block_size - 1) / block_size;
-
+        // Launch one thread per filter/channel.
+        let bias_grid_size = (self.kernel_count as u32 + block_size - 1) / block_size;
         let backward_bias_fn = self.module.get_function("backward_bias")?;
         unsafe {
             cust::launch!(
-                backward_bias_fn<<<output_grid_size, block_size, 0, real_stream>>>(
+                backward_bias_fn<<<bias_grid_size, block_size, 0, real_stream>>>(
                     output_gradient.as_device_ptr(),
                     self.bias_gradient.as_device_ptr(),
-                    self.output_size as u32
+                    self.kernel_count as u32,
+                    output_dim_x,
+                    output_dim_y
                 )
             )?;
         }

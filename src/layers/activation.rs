@@ -14,6 +14,11 @@ pub const SIGMOID: ActivationFunction = ActivationFunction {
     backward: "sigmoid_backward",
 };
 
+pub const SOFTMAX: ActivationFunction = ActivationFunction {
+    forward: "softmax_forward",
+    backward: "softmax_backward",
+};
+
 pub struct ActivationFunction {
     forward: &'static str,
     backward: &'static str,

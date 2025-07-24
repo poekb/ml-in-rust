@@ -62,3 +62,31 @@ extern "C" __global__ void sigmoid_backward(
         input_gradient[tid] = output_gradient[tid] * sig * (1.0f - sig);
     }
 }
+
+
+/// CUDA kernel for Softmax activation forward pass
+extern "C" __global__ void softmax_forward(
+    const float* input,
+    float* output,
+    int size
+) {
+    int tid = blockIdx.x * blockDim.x + threadIdx.x;
+    if (tid == 0) {
+        output[tid] = input[tid];
+    }
+}
+
+/// CUDA kernel for Softmax activation backward pass
+/// We just pass the output gradient through as Softmax does not have a simple backward pass
+
+extern "C" __global__ void softmax_backward(
+    const float* input,
+    const float* output_gradient,
+    float* input_gradient,
+    int size
+) {
+    int tid = blockIdx.x * blockDim.x + threadIdx.x;
+    if (tid < size) {
+        input_gradient[tid] = output_gradient[tid];
+    }
+}

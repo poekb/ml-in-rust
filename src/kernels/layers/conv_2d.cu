@@ -48,7 +48,7 @@ extern "C" __global__ void forward(
                 }
             }
         }
-        output[tid] = sum + bias[tid];
+        output[tid] = sum + bias[i];
     }
 }
 
@@ -72,23 +72,32 @@ extern "C" __global__ void backward_input(
     int input_size = input_depth * input_dim_x * input_dim_y;
 
     if (tid < input_size) {
-        // Decompose thread ID into input coordinates (, iy, ix)
-        int j = tid / (input_dim_x * input_dim_y);
-        int iy = (tid % (input_dim_x * input_dim_y)) / input_dim_x;
-        int ix = tid % input_dim_x;
+        int j = tid / (input_dim_x * input_dim_y); // Input channel
+        int iy = (tid % (input_dim_x * input_dim_y)) / input_dim_x; // Input y position
+        int ix = tid % input_dim_x; // Input x position
 
-        float sum = 0.0;
+        float sum = 0.0f;
 
-        for (int i = 0; i < kernel_count; i++) {
+        for (int i = 0; i < kernel_count; i++) { // Output channel
             for (int ky = 0; ky < kernel_dim_y; ky++) {
                 for (int kx = 0; kx < kernel_dim_x; kx++) {
-                    int ox = ix + kx - kernel_dim_x + 1;
-                    int oy = iy + ky - kernel_dim_y + 1;
-                    if (0 <= ox && ox < output_dim_x && 0 <= oy && oy < output_dim_y) {
-                        sum += output_gradient[i * (kernel_dim_x * kernel_dim_y) + oy * kernel_dim_x + ox]
-                            * kernel[i * (input_depth * kernel_dim_y * kernel_dim_x) + j * (kernel_dim_x * kernel_dim_y)
-                            // Because this is a convolution and not a cross-correlation we flip the kernel
-                            + (kernel_dim_y - ky - 1) * kernel_dim_x + (kernel_dim_x - kx - 1)
+                    // For backward pass, we need to flip the kernel indices
+                    int flipped_ky = kernel_dim_y - 1 - ky;
+                    int flipped_kx = kernel_dim_x - 1 - kx;
+
+                    // Calculate output position that contributed to this input
+                    int oy = iy - flipped_ky;
+                    int ox = ix - flipped_kx;
+
+                    // Check if output position is valid
+                    if (oy >= 0 && oy < output_dim_y && ox >= 0 && ox < output_dim_x) {
+                        sum += output_gradient[i * (output_dim_x * output_dim_y) + oy * output_dim_x + ox]
+                            *
+                            kernel[
+                                i * (input_depth * kernel_dim_y * kernel_dim_x) +
+                                    j * (kernel_dim_y * kernel_dim_x) +
+                                    flipped_ky * kernel_dim_x +
+                                    flipped_kx
                             ];
                     }
                 }
@@ -137,11 +146,13 @@ extern "C" __global__ void backward_kernel(
         float sum = 0.0;
         for (int oy = 0; oy < output_dim_y; oy++) {
             for (int ox = 0; ox < output_dim_x; ox++) {
+                int iy = oy + ky;
+                int ix = ox + kx;
 
                 sum += input[
                     j * (input_dim_x * input_dim_y)
-                        + oy * input_dim_x
-                        + ox]
+                        + iy * input_dim_x
+                        + ix]
                     * output_gradient[
                         i * (output_dim_x * output_dim_y)
                             + oy * output_dim_x
@@ -154,17 +165,28 @@ extern "C" __global__ void backward_kernel(
 }
 
 // Kernel to compute the bias gradient (dL/dB)
-// Launched with one thread per output element.
-// output_gradient.as_device_ptr(),
-// self.bias_gradient.as_device_ptr(),
-// self.output_size as u32
+// Launched with one thread per filter/channel.
 extern "C" __global__ void backward_bias(
     const float* output_gradient,
     float* bias_gradient,
-    unsigned int output_size
+    unsigned int kernel_count,
+    unsigned int output_dim_x,
+    unsigned int output_dim_y
 ) {
-    int tid = blockIdx.x * blockDim.x + threadIdx.x;
-    if (tid < output_size) {
-        bias_gradient[tid] += output_gradient[tid];
+    // Each thread calculates the gradient for one bias value.
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+
+    if (i < kernel_count) {
+        float sum = 0.0f;
+        unsigned int output_channel_size = output_dim_x * output_dim_y;
+
+        // Sum all the output gradients for the current channel 'i'.
+        for (int j = 0; j < output_channel_size; j++) {
+            sum += output_gradient[i * output_channel_size + j];
+        }
+
+        // Accumulate the gradient for the batch.
+        // This is safe because each thread 'i' writes to a unique bias_gradient[i].
+        bias_gradient[i] += sum;
     }
 }

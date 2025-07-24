@@ -9,8 +9,8 @@ static PTX: &str = include_str!("../kernels/layers/dense_layer.ptx");
 pub struct DenseLayer {
     pub weights: DeviceBuffer<f32>,
     pub biases: DeviceBuffer<f32>,
-    weights_gradient: DeviceBuffer<f32>,
-    biases_gradient: DeviceBuffer<f32>,
+    pub weights_gradient: DeviceBuffer<f32>,
+    pub biases_gradient: DeviceBuffer<f32>,
     gradient_count: usize,
     pub input_size: usize,
     pub output_size: usize,
