@@ -99,11 +99,10 @@ impl Layer for NeuralNetwork {
 
     fn optimize(
         &mut self,
-        optimizer: &Box<dyn super::Optimizer>,
         stream: Option<&cust::prelude::Stream>,
     ) -> Result<(), Box<dyn std::error::Error>> {
         for layer in &mut self.layers {
-            layer.optimize(optimizer, stream)?;
+            layer.optimize(stream)?;
         }
         Ok(())
     }

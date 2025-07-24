@@ -16,14 +16,16 @@ This project is a simple neural network library built from scratch in Rust, with
     -   ReLU and Sigmoid activation functions.
     -   Xavier weight initialization.
     -   Stochastic Gradient Descent (SGD) optimizer.
-    -   2D Convolutional layers (in progress).
+    -   2D Convolutional layers.
+    -   Adam optimizer.
+
 
 ## Prerequisites
 
 -   **Rust Toolchain:** Install from [rustup.rs](https://rustup.rs/).
 -   **NVIDIA GPU:** An NVIDIA GPU with CUDA support is required.
 -   **CUDA Toolkit:** The NVIDIA CUDA Toolkit must be installed. The build script relies on the `nvcc` compiler and the `CUDA_HOME` environment variable. You can download it from the [NVIDIA Developer](https://developer.nvidia.com/cuda-downloads) website.
--   **MNIST Dataset:** The dataset is included in the git repo for demonstrating just how fast a network can be trained for >97% accuracy
+-   **MNIST Dataset:** The dataset is included in the git repo for demonstrating just how fast a network can be trained for >99% accuracy
 
     [MNIST](https://www.kaggle.com/datasets/hojjatk/mnist-dataset).
 
@@ -45,7 +47,6 @@ The program will build the CUDA kernels, create the neural network, train it on 
 
 ## Future Features
 -   Support for serialization and deserialization of the model.
--   More advanced optimizers (e.g., Adam, RMSprop).
 -   Support for dropout and batch normalization layers.
 
 ## Project Structure

@@ -1,5 +1,3 @@
-use std::{thread::sleep, time::Duration};
-
 use cust::{
     memory::{CopyDestination, DeviceBuffer},
     stream::Stream,
@@ -29,11 +27,7 @@ pub trait Layer {
         stream: Option<&Stream>,
     ) -> Result<(), Box<dyn std::error::Error>>;
 
-    fn optimize(
-        &mut self,
-        optimizer: &Box<dyn Optimizer>,
-        stream: Option<&Stream>,
-    ) -> Result<(), Box<dyn std::error::Error>>;
+    fn optimize(&mut self, stream: Option<&Stream>) -> Result<(), Box<dyn std::error::Error>>;
 
     fn get_input_size(&self) -> usize;
     fn get_output_size(&self) -> usize;
@@ -82,11 +76,11 @@ impl LayerWrapper {
         let mut output = vec![0.0f32; self.layer.get_output_size()];
         self.output_buffer.copy_to(output.as_mut_slice())?;
 
-        // Gradient for Softmax with Cross-Entropy Loss is (prediction - target)
-        // The output however is not the Softmax output, so first we need to apply the softmax function to the output here on the cpu side.
-        let output = output.iter().map(|&x| x.exp()).collect::<Vec<f32>>();
+        // Apply softmax with numerical stability
+        let max_val = output.iter().fold(f32::NEG_INFINITY, |a, &b| a.max(b));
+        let output: Vec<f32> = output.iter().map(|&x| (x - max_val).exp()).collect();
         let sum: f32 = output.iter().sum();
-        let output: Vec<f32> = output.iter().map(|&x| x / sum).collect();
+        let output: Vec<f32> = output.iter().map(|&x| x / (sum.max(1e-10))).collect();
 
         let output_gradient = output
             .iter()
@@ -105,12 +99,9 @@ impl LayerWrapper {
         Ok(())
     }
 
-    pub fn optimize(
-        &mut self,
-        optimizer: &Box<dyn Optimizer>,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn optimize(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         let stream = Stream::new(cust::stream::StreamFlags::DEFAULT, None)?;
-        self.layer.optimize(optimizer, Some(&stream))?;
+        self.layer.optimize(Some(&stream))?;
         stream.synchronize()?;
         Ok(())
     }

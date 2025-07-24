@@ -1,6 +1,6 @@
 static PTX: &str = include_str!("../kernels/layers/max_pool_2d.ptx");
 
-use crate::layers::{Layer, Optimizer};
+use crate::layers::Layer;
 use cust::{memory::DeviceBuffer, module::Module};
 use std::{error::Error, vec};
 pub struct MaxPool2DLayer {
@@ -147,11 +147,7 @@ impl Layer for MaxPool2DLayer {
     }
 
     // MaxPool has no learnable parameters, so optimize is a no-op.
-    fn optimize(
-        &mut self,
-        _optimizer: &Box<dyn Optimizer>,
-        _stream: Option<&cust::stream::Stream>,
-    ) -> Result<(), Box<dyn Error>> {
+    fn optimize(&mut self, _stream: Option<&cust::stream::Stream>) -> Result<(), Box<dyn Error>> {
         Ok(())
     }
 

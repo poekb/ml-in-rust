@@ -107,7 +107,6 @@ impl Layer for ActivationLayer {
     }
     fn optimize(
         &mut self,
-        _optimizer: &Box<dyn super::Optimizer>,
         _stream: Option<&cust::prelude::Stream>,
     ) -> Result<(), Box<dyn std::error::Error>> {
         // ReLU does not have parameters to optimize, so this is a no-op

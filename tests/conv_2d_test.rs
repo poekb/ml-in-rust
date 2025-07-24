@@ -1,6 +1,7 @@
 use cust::prelude::*;
 use machine_learning_lib::init_cuda;
 use machine_learning_lib::layers::dense::he_initializer;
+use machine_learning_lib::layers::optimizer::{NoOpOptimizer, Optimizer};
 use machine_learning_lib::layers::{Layer, conv_2d::Conv2DLayer};
 
 #[test]
@@ -17,6 +18,8 @@ fn test_conv2d_forward() {
     let kernel_dim_y = 2;
     let kernel_count = 1;
 
+    let optimizer: Box<dyn Optimizer> = NoOpOptimizer::boxed();
+
     // Create layer
     let mut layer = Conv2DLayer::new(
         input_depth,
@@ -26,6 +29,7 @@ fn test_conv2d_forward() {
         kernel_dim_y,
         kernel_count,
         he_initializer,
+        &optimizer,
     );
 
     // Replace random weights with known values for testing
@@ -114,6 +118,8 @@ fn test_conv2d_backward() {
     let kernel_dim_y = 2;
     let kernel_count = 1;
 
+    let optimizer: Box<dyn Optimizer> = NoOpOptimizer::boxed();
+
     let mut layer = Conv2DLayer::new(
         input_depth,
         input_dim_x,
@@ -122,6 +128,7 @@ fn test_conv2d_backward() {
         kernel_dim_y,
         kernel_count,
         he_initializer,
+        &optimizer,
     );
 
     // Input: [
@@ -194,12 +201,9 @@ fn test_conv2d_backward() {
             .unwrap();
     }
 
-    // Manually calculate expected gradients
-
     // Input gradient calculation:
     // input_grad[0,0] = output_grad[0,0] * kernel[0,0] = 0.1 * 1.0 = 0.1
     // input_grad[0,1] = output_grad[0,0] * kernel[0,1] + output_grad[0,1] * kernel[0,0] = 0.1 * 2.0 + 0.2 * 1.0 = 0.4
-    // ... (continue for all input positions)
 
     // Correct expected input gradient values:
     let expected_input_gradient = vec![0.1, 0.4, 0.4, 0.6, 2.0, 1.6, 0.9, 2.4, 1.6];
@@ -221,7 +225,7 @@ fn test_conv2d_backward() {
 
     // Check results
 
-    for (i, (actual, expected)) in bias_gradient
+    for (_, (actual, expected)) in bias_gradient
         .iter()
         .zip(expected_bias_gradient.iter())
         .enumerate()
@@ -234,7 +238,7 @@ fn test_conv2d_backward() {
         );
     }
 
-    for (i, (actual, expected)) in kernel_gradient
+    for (_, (actual, expected)) in kernel_gradient
         .iter()
         .zip(expected_kernel_gradient.iter())
         .enumerate()
@@ -247,7 +251,7 @@ fn test_conv2d_backward() {
         );
     }
 
-    for (i, (actual, expected)) in input_gradient
+    for (_, (actual, expected)) in input_gradient
         .iter()
         .zip(expected_input_gradient.iter())
         .enumerate()

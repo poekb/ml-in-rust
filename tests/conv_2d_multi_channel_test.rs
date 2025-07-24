@@ -1,6 +1,7 @@
 use cust::prelude::*;
 use machine_learning_lib::init_cuda;
 use machine_learning_lib::layers::dense::he_initializer;
+use machine_learning_lib::layers::optimizer::{NoOpOptimizer, Optimizer};
 use machine_learning_lib::layers::{Layer, conv_2d::Conv2DLayer};
 
 #[test]
@@ -17,6 +18,8 @@ fn test_conv2d_multi_channel_forward() {
     let kernel_dim_y = 2;
     let kernel_count = 2;
 
+    let optimizer: Box<dyn Optimizer> = NoOpOptimizer::boxed();
+
     // Create layer
     let mut layer = Conv2DLayer::new(
         input_depth,
@@ -26,6 +29,7 @@ fn test_conv2d_multi_channel_forward() {
         kernel_dim_y,
         kernel_count,
         he_initializer,
+        &optimizer,
     );
 
     // Input: two 2x2 matrices
@@ -131,6 +135,8 @@ fn test_conv2d_multi_channel_backward() {
     let kernel_dim_y = 2;
     let kernel_count = 2;
 
+    let optimizer: Box<dyn Optimizer> = NoOpOptimizer::boxed();
+
     let mut layer = Conv2DLayer::new(
         input_depth,
         input_dim_x,
@@ -139,6 +145,7 @@ fn test_conv2d_multi_channel_backward() {
         kernel_dim_y,
         kernel_count,
         he_initializer,
+        &optimizer,
     );
 
     // Input: two 2x2 matrices

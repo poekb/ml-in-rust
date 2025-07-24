@@ -1,6 +1,6 @@
 use cust::{memory::DeviceBuffer, module::Module};
 
-use crate::layers::{Layer, Optimizer};
+use crate::layers::{Layer, Optimizer, optimizer::OptimizerImpl};
 
 static PTX: &str = include_str!("../kernels/layers/conv_2d.ptx");
 
@@ -23,6 +23,8 @@ pub struct Conv2DLayer {
     output_size: usize,
 
     module: Module,
+    kernel_optimizer: Box<dyn OptimizerImpl>,
+    bias_optimizer: Box<dyn OptimizerImpl>,
 }
 
 impl Conv2DLayer {
@@ -34,6 +36,7 @@ impl Conv2DLayer {
         kernel_dim_y: usize,
         kernel_count: usize,
         initializer: fn(usize, usize, usize) -> Vec<f32>,
+        optimizer: &Box<dyn Optimizer>,
     ) -> Self {
         let input_size = input_depth * input_dim_x * input_dim_y;
         let output_size =
@@ -69,6 +72,8 @@ impl Conv2DLayer {
             input_size,
             output_size,
             module,
+            kernel_optimizer: optimizer.instance(kernel_parameter_count),
+            bias_optimizer: optimizer.instance(bias_parameter_count),
         }
     }
 
@@ -80,6 +85,7 @@ impl Conv2DLayer {
         kernel_dim_y: usize,
         kernel_count: usize,
         initializer: fn(usize, usize, usize) -> Vec<f32>,
+        optimizer: &Box<dyn Optimizer>,
     ) -> Box<Self> {
         Box::new(Self::new(
             input_depth,
@@ -89,6 +95,7 @@ impl Conv2DLayer {
             kernel_dim_y,
             kernel_count,
             initializer,
+            optimizer,
         ))
     }
 }
@@ -218,16 +225,15 @@ impl Layer for Conv2DLayer {
 
     fn optimize(
         &mut self,
-        optimizer: &Box<dyn Optimizer>,
         stream: Option<&cust::prelude::Stream>,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        optimizer.optimize(
+        self.kernel_optimizer.optimize(
             &self.kernel_parameters,
             &self.kernel_gradient,
             self.gradient_count,
             stream,
         )?;
-        optimizer.optimize(
+        self.bias_optimizer.optimize(
             &self.bias_parameters,
             &self.bias_gradient,
             self.gradient_count,

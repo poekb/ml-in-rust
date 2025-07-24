@@ -1,7 +1,7 @@
 use cust::{memory::DeviceBuffer, module::Module};
 use rand::distr::{Distribution, Uniform};
 
-use crate::layers::{Layer, Optimizer};
+use crate::layers::{Layer, Optimizer, optimizer::OptimizerImpl};
 
 static PTX: &str = include_str!("../kernels/layers/dense_layer.ptx");
 
@@ -15,6 +15,8 @@ pub struct DenseLayer {
     pub input_size: usize,
     pub output_size: usize,
     module: Module,
+    weight_optimizer: Box<dyn OptimizerImpl>,
+    bias_optimizer: Box<dyn OptimizerImpl>,
 }
 
 pub fn xavier_initializer(input_size: usize, output_size: usize, count: usize) -> Vec<f32> {
@@ -36,6 +38,7 @@ impl DenseLayer {
         input_size: usize,
         output_size: usize,
         initializer: fn(usize, usize, usize) -> Vec<f32>,
+        optimizer: &Box<dyn Optimizer>,
     ) -> Self {
         let weights = DeviceBuffer::from_slice(&initializer(
             input_size,
@@ -57,6 +60,8 @@ impl DenseLayer {
             input_size,
             output_size,
             module,
+            weight_optimizer: optimizer.instance(input_size * output_size),
+            bias_optimizer: optimizer.instance(output_size),
         }
     }
 
@@ -64,8 +69,9 @@ impl DenseLayer {
         input_size: usize,
         output_size: usize,
         initializer: fn(usize, usize, usize) -> Vec<f32>,
+        optimizer: &Box<dyn Optimizer>,
     ) -> Box<Self> {
-        Box::new(Self::new(input_size, output_size, initializer))
+        Box::new(Self::new(input_size, output_size, initializer, optimizer))
     }
 }
 
@@ -150,16 +156,15 @@ impl Layer for DenseLayer {
 
     fn optimize(
         &mut self,
-        optimizer: &Box<dyn Optimizer>,
         stream: Option<&cust::stream::Stream>,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        optimizer.optimize(
+        self.weight_optimizer.optimize(
             &self.weights,
             &self.weights_gradient,
             self.gradient_count,
             stream,
         )?;
-        optimizer.optimize(
+        self.bias_optimizer.optimize(
             &self.biases,
             &self.biases_gradient,
             self.gradient_count,

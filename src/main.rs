@@ -6,7 +6,7 @@ use machine_learning_lib::{
         conv_2d::Conv2DLayer,
         dense::DenseLayer,
         max_pool_2d::MaxPool2DLayer,
-        optimizer::StochasticGradientDescent,
+        optimizer::{AdamOptimizer, Optimizer},
     },
 };
 use rand::seq::SliceRandom;
@@ -31,9 +31,6 @@ fn main() {
         "./MNIST/t10k-labels.idx1-ubyte".to_string(),
     );
     let data = loader.load_data();
-
-    let optimizer: Box<dyn machine_learning_lib::layers::optimizer::Optimizer> =
-        Box::new(StochasticGradientDescent::new(0.05));
 
     match data {
         Ok(((train_images, train_labels), (test_images, test_labels))) => loop {
@@ -65,13 +62,10 @@ fn main() {
 
                         network.back_propagate(&target).unwrap();
 
-                        // Calculate Cross-Entropy cost for the current sample.
-                        // Cost = -log(predicted_probability_of_correct_class)
-                        // We add a small epsilon for numerical stability to avoid log(0).
                         let cost = -(output[y as usize].max(1e-9)).ln();
                         cost_sum += cost;
                     }
-                    network.optimize(&optimizer).unwrap();
+                    network.optimize().unwrap();
                     println!(
                         "Processed batch {}/{}",
                         batch_start / batch_size + 1,
@@ -109,23 +103,40 @@ fn main() {
 }
 
 pub fn create_network() -> Result<layers::LayerWrapper, Box<dyn std::error::Error>> {
+    let sgd_optimizer: Box<dyn Optimizer> = AdamOptimizer::boxed(0.001, 0.9, 0.999, 1e-8);
     let network = layers::LayerWrapper::new(layers::network::NeuralNetwork::boxed(vec![
-        // Block 1: First Convolution + Pooling
-        // Input: 1x28x28
-        Conv2DLayer::boxed(1, 28, 28, 5, 5, 20, layers::dense::xavier_initializer), // Output: 20x24x24
-        ActivationLayer::boxed(RELU, 20 * 24 * 24),
-        MaxPool2DLayer::boxed(20, 24, 24, 2, 2), // Output: 20x12x12
-        // Block 2: Second Convolution + Pooling
-        Conv2DLayer::boxed(20, 12, 12, 5, 5, 50, layers::dense::xavier_initializer), // Output: 50x8x8
+
+        Conv2DLayer::boxed(
+            1,
+            28,
+            28,
+            5,
+            5,
+            40,
+            layers::dense::xavier_initializer,
+            &sgd_optimizer,
+        ), // Output: 20x24x24
+        ActivationLayer::boxed(RELU, 40 * 24 * 24),
+        MaxPool2DLayer::boxed(40, 24, 24, 2, 2), // Output: 20x12x12
+        Conv2DLayer::boxed(
+            40,
+            12,
+            12,
+            5,
+            5,
+            50,
+            layers::dense::xavier_initializer,
+            &sgd_optimizer,
+        ), // Output: 50x8x8
         ActivationLayer::boxed(RELU, 50 * 8 * 8),
         MaxPool2DLayer::boxed(50, 8, 8, 2, 2), // Output: 50x4x4
-        // Block 3: Fully Connected Layers
-        // The transition to a DenseLayer implicitly flattens the 50x4x4 output.
-        // Input size to dense layer: 50 * 4 * 4 = 800
-        DenseLayer::boxed(800, 500, layers::dense::xavier_initializer),
-        ActivationLayer::boxed(RELU, 500),
-        // Output Layer
-        DenseLayer::boxed(500, 10, layers::dense::he_initializer),
+        DenseLayer::boxed(800, 256, layers::dense::xavier_initializer, &sgd_optimizer),
+        ActivationLayer::boxed(RELU, 256),
+        DenseLayer::boxed(256, 256, layers::dense::xavier_initializer, &sgd_optimizer),
+        ActivationLayer::boxed(RELU, 256),
+        DenseLayer::boxed(256, 10, layers::dense::he_initializer, &sgd_optimizer),
+        // The final layer does not need an activation function here, as we currently apply softmax in the wrapper
+        // TODO: change this, so the final activation function, and loss function are modular.
     ]))?;
     Ok(network)
 }
