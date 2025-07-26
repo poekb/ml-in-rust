@@ -1,7 +1,7 @@
 use machine_learning_lib::{
     init_cuda,
     layers::{
-        self,
+        self, SoftmaxCrossEntropyCloser,
         activation::{ActivationLayer, RELU},
         conv_2d::Conv2DLayer,
         dense::DenseLayer,
@@ -103,40 +103,40 @@ fn main() {
 }
 
 pub fn create_network() -> Result<layers::LayerWrapper, Box<dyn std::error::Error>> {
-    let sgd_optimizer: Box<dyn Optimizer> = AdamOptimizer::boxed(0.001, 0.9, 0.999, 1e-8);
-    let network = layers::LayerWrapper::new(layers::network::NeuralNetwork::boxed(vec![
-
-        Conv2DLayer::boxed(
-            1,
-            28,
-            28,
-            5,
-            5,
-            40,
-            layers::dense::xavier_initializer,
-            &sgd_optimizer,
-        ), // Output: 20x24x24
-        ActivationLayer::boxed(RELU, 40 * 24 * 24),
-        MaxPool2DLayer::boxed(40, 24, 24, 2, 2), // Output: 20x12x12
-        Conv2DLayer::boxed(
-            40,
-            12,
-            12,
-            5,
-            5,
-            50,
-            layers::dense::xavier_initializer,
-            &sgd_optimizer,
-        ), // Output: 50x8x8
-        ActivationLayer::boxed(RELU, 50 * 8 * 8),
-        MaxPool2DLayer::boxed(50, 8, 8, 2, 2), // Output: 50x4x4
-        DenseLayer::boxed(800, 256, layers::dense::xavier_initializer, &sgd_optimizer),
-        ActivationLayer::boxed(RELU, 256),
-        DenseLayer::boxed(256, 256, layers::dense::xavier_initializer, &sgd_optimizer),
-        ActivationLayer::boxed(RELU, 256),
-        DenseLayer::boxed(256, 10, layers::dense::he_initializer, &sgd_optimizer),
-        // The final layer does not need an activation function here, as we currently apply softmax in the wrapper
-        // TODO: change this, so the final activation function, and loss function are modular.
-    ]))?;
+    let adam_optimizer: Box<dyn Optimizer> = AdamOptimizer::boxed(0.001, 0.9, 0.999, 1e-8);
+    let network = layers::LayerWrapper::new(
+        layers::network::NeuralNetwork::boxed(vec![
+            Conv2DLayer::boxed(
+                1,
+                28,
+                28,
+                5,
+                5,
+                40,
+                layers::dense::xavier_initializer,
+                &adam_optimizer,
+            ), // Output: 20x24x24
+            ActivationLayer::boxed(RELU, 40 * 24 * 24),
+            MaxPool2DLayer::boxed(40, 24, 24, 2, 2), // Output: 20x12x12
+            Conv2DLayer::boxed(
+                40,
+                12,
+                12,
+                5,
+                5,
+                50,
+                layers::dense::xavier_initializer,
+                &adam_optimizer,
+            ), // Output: 50x8x8
+            ActivationLayer::boxed(RELU, 50 * 8 * 8),
+            MaxPool2DLayer::boxed(50, 8, 8, 2, 2), // Output: 50x4x4
+            DenseLayer::boxed(800, 256, layers::dense::xavier_initializer, &adam_optimizer),
+            ActivationLayer::boxed(RELU, 256),
+            DenseLayer::boxed(256, 256, layers::dense::xavier_initializer, &adam_optimizer),
+            ActivationLayer::boxed(RELU, 256),
+            DenseLayer::boxed(256, 10, layers::dense::he_initializer, &adam_optimizer),
+        ]),
+        SoftmaxCrossEntropyCloser::boxed(),
+    )?;
     Ok(network)
 }

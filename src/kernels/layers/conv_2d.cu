@@ -109,7 +109,7 @@ extern "C" __global__ void backward_input(
 }
 
 // Kernel to compute the kernel/weight gradient (dL/dW)
-// Launched with one thread per output element.
+// Launched with one thread per kernel parameter.
 // input.as_device_ptr(),
 // output_gradient.as_device_ptr(),
 // self.kernel_gradient.as_device_ptr(),
