@@ -157,4 +157,20 @@ impl Layer for MaxPool2DLayer {
     fn get_output_size(&self) -> usize {
         self.depth * self.output_dim_x * self.output_dim_y
     }
+
+    fn serialize_parameters(
+        &self,
+        _writer: &mut dyn std::io::Write,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        // MaxPool has no parameters to serialize
+        Ok(())
+    }
+
+    fn deserialize_parameters(
+        &mut self,
+        _reader: &mut dyn std::io::Read,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        // MaxPool has no parameters to deserialize
+        Ok(())
+    }
 }

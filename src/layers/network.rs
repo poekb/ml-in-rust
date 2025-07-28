@@ -114,4 +114,24 @@ impl Layer for NeuralNetwork {
     fn get_output_size(&self) -> usize {
         self.output_size
     }
+
+    fn serialize_parameters(
+        &self,
+        writer: &mut dyn std::io::Write,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        for layer in &self.layers {
+            layer.serialize_parameters(writer)?;
+        }
+        Ok(())
+    }
+
+    fn deserialize_parameters(
+        &mut self,
+        reader: &mut dyn std::io::Read,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        for layer in &mut self.layers {
+            layer.deserialize_parameters(reader)?;
+        }
+        Ok(())
+    }
 }

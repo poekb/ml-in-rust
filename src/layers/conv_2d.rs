@@ -1,4 +1,7 @@
-use cust::{memory::DeviceBuffer, module::Module};
+use cust::{
+    memory::{CopyDestination, DeviceBuffer},
+    module::Module,
+};
 
 use crate::layers::{Layer, Optimizer, optimizer::OptimizerImpl};
 
@@ -248,5 +251,65 @@ impl Layer for Conv2DLayer {
 
     fn get_output_size(&self) -> usize {
         self.output_size
+    }
+
+    fn serialize_parameters(
+        &self,
+        writer: &mut dyn std::io::Write,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let mut host_vec_kernel = vec![0.0f32; self.kernel_parameters.len()];
+        let mut host_vec_bias = vec![0.0f32; self.bias_parameters.len()];
+        self.kernel_parameters.copy_to(&mut host_vec_kernel)?;
+        self.bias_parameters.copy_to(&mut host_vec_bias)?;
+
+        writer.write_all(&host_vec_kernel.len().to_be_bytes())?;
+        for &value in &host_vec_kernel {
+            writer.write_all(&value.to_le_bytes())?;
+        }
+        writer.write_all(&host_vec_bias.len().to_be_bytes())?;
+        for &value in &host_vec_bias {
+            writer.write_all(&value.to_le_bytes())?;
+        }
+        Ok(())
+    }
+
+    fn deserialize_parameters(
+        &mut self,
+        reader: &mut dyn std::io::Read,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let mut kernel_count_bytes = [0u8; 8];
+        reader.read_exact(&mut kernel_count_bytes)?;
+        let kernel_parameter_count = usize::from_be_bytes(kernel_count_bytes);
+
+        if self.kernel_parameters.len() != kernel_parameter_count {
+            return Err(Box::from("Kernel count mismatch during deserialization"));
+        }
+
+        let mut host_vec_kernel = vec![0.0f32; kernel_parameter_count];
+        for value in &mut host_vec_kernel {
+            let mut bytes = [0u8; 4];
+            reader.read_exact(&mut bytes)?;
+            *value = f32::from_le_bytes(bytes);
+        }
+
+        let mut bias_count_bytes = [0u8; 8];
+        reader.read_exact(&mut bias_count_bytes)?;
+        let bias_parameter_count = usize::from_be_bytes(bias_count_bytes);
+
+        if self.bias_parameters.len() != bias_parameter_count {
+            return Err(Box::from("Bias count mismatch during deserialization"));
+        }
+
+        let mut host_vec_bias = vec![0.0f32; bias_parameter_count];
+        for value in &mut host_vec_bias {
+            let mut bytes = [0u8; 4];
+            reader.read_exact(&mut bytes)?;
+            *value = f32::from_le_bytes(bytes);
+        }
+
+        self.kernel_parameters.copy_from(&host_vec_kernel)?;
+        self.bias_parameters.copy_from(&host_vec_bias)?;
+
+        Ok(())
     }
 }

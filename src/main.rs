@@ -24,6 +24,17 @@ fn main() {
         }
     };
 
+    // Try to deserialize parameters:
+    if let Ok(params_file) = std::fs::File::open("network_params.bin") {
+        let mut reader = std::io::BufReader::new(params_file);
+        if let Err(e) = network.deserialize_parameters(&mut reader) {
+            eprintln!("Failed to deserialize parameters: {}", e);
+            return;
+        }
+    } else {
+        println!("No existing parameters found, training from scratch.");
+    }
+
     let loader = mnist_loader::MnistDataloader::new(
         "./MNIST/train-images.idx3-ubyte".to_string(),
         "./MNIST/train-labels.idx1-ubyte".to_string(),
@@ -92,6 +103,14 @@ fn main() {
                 let accuracy = correct as f32 / test_x.len() as f32;
 
                 println!("Training complete. Test accuracy: {:.2}%", accuracy * 100.0);
+
+                // Save params after every epoch
+                let params_file = std::fs::File::create("network_params.bin").unwrap();
+                let mut writer = std::io::BufWriter::new(params_file);
+                if let Err(e) = network.serialize_parameters(&mut writer) {
+                    eprintln!("Failed to serialize parameters: {}", e);
+                    return;
+                }
             }
 
             println!("Press Enter to continue...");

@@ -33,6 +33,16 @@ pub trait Layer {
 
     fn get_input_size(&self) -> usize;
     fn get_output_size(&self) -> usize;
+
+    fn serialize_parameters(
+        &self,
+        writer: &mut dyn std::io::Write,
+    ) -> Result<(), Box<dyn std::error::Error>>;
+
+    fn deserialize_parameters(
+        &mut self,
+        reader: &mut dyn std::io::Read,
+    ) -> Result<(), Box<dyn std::error::Error>>;
 }
 
 pub struct LayerWrapper {
@@ -58,8 +68,18 @@ pub trait NetworkCloser {
 }
 
 pub struct SoftmaxCrossEntropyCloser;
+pub struct MeanSquaredErrorCloser;
 
 impl SoftmaxCrossEntropyCloser {
+    pub fn new() -> Self {
+        Self {}
+    }
+    pub fn boxed() -> Box<Self> {
+        Box::new(Self::new())
+    }
+}
+
+impl MeanSquaredErrorCloser {
     pub fn new() -> Self {
         Self {}
     }
@@ -99,6 +119,36 @@ impl NetworkCloser for SoftmaxCrossEntropyCloser {
             .iter()
             .zip(target.iter())
             .map(|(o, t)| o - t)
+            .collect::<Vec<f32>>();
+        output_gradient_buffer.copy_from(&output_gradient)?;
+
+        Ok(())
+    }
+}
+
+impl NetworkCloser for MeanSquaredErrorCloser {
+    fn infer(
+        &self,
+        input_buffer: &DeviceBuffer<f32>,
+    ) -> Result<Vec<f32>, Box<dyn std::error::Error>> {
+        let mut result = vec![0.0f32; input_buffer.len()];
+        input_buffer.copy_to(&mut result)?;
+        Ok(result)
+    }
+
+    fn back_propagate(
+        &self,
+        target: &Vec<f32>,
+        output_buffer: &DeviceBuffer<f32>,
+        output_gradient_buffer: &mut DeviceBuffer<f32>,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let mut output = vec![0.0f32; output_buffer.len()];
+        output_buffer.copy_to(&mut output)?;
+
+        let output_gradient = output
+            .iter()
+            .zip(target.iter())
+            .map(|(o, t)| 2.0 * (o - t))
             .collect::<Vec<f32>>();
         output_gradient_buffer.copy_from(&output_gradient)?;
 
@@ -160,5 +210,19 @@ impl LayerWrapper {
         self.layer.optimize(Some(&stream))?;
         stream.synchronize()?;
         Ok(())
+    }
+
+    pub fn serialize_parameters(
+        &self,
+        writer: &mut dyn std::io::Write,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        self.layer.serialize_parameters(writer)
+    }
+
+    pub fn deserialize_parameters(
+        &mut self,
+        reader: &mut dyn std::io::Read,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        self.layer.deserialize_parameters(reader)
     }
 }

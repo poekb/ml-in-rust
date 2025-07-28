@@ -1,4 +1,7 @@
-use cust::{memory::DeviceBuffer, module::Module};
+use cust::{
+    memory::{CopyDestination, DeviceBuffer},
+    module::Module,
+};
 use rand::distr::{Distribution, Uniform};
 
 use crate::layers::{Layer, Optimizer, optimizer::OptimizerImpl};
@@ -181,5 +184,66 @@ impl Layer for DenseLayer {
 
     fn get_output_size(&self) -> usize {
         self.output_size
+    }
+
+    fn serialize_parameters(
+        &self,
+        writer: &mut dyn std::io::Write,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let mut host_vec_weights = vec![0.0f32; self.weights.len()];
+        let mut host_vec_biases = vec![0.0f32; self.biases.len()];
+        self.weights.copy_to(&mut host_vec_weights)?;
+        self.biases.copy_to(&mut host_vec_biases)?;
+
+        writer.write_all(&(self.input_size as u64).to_be_bytes())?;
+        writer.write_all(&(self.output_size as u64).to_be_bytes())?;
+
+        for &value in &host_vec_weights {
+            writer.write_all(&value.to_le_bytes())?;
+        }
+        for &value in &host_vec_biases {
+            writer.write_all(&value.to_le_bytes())?;
+        }
+        Ok(())
+    }
+
+    fn deserialize_parameters(
+        &mut self,
+        reader: &mut dyn std::io::Read,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let mut input_size_bytes = [0u8; 8];
+        let mut output_size_bytes = [0u8; 8];
+        reader.read_exact(&mut input_size_bytes)?;
+        reader.read_exact(&mut output_size_bytes)?;
+        let input_size = u64::from_be_bytes(input_size_bytes) as usize;
+        let output_size = u64::from_be_bytes(output_size_bytes) as usize;
+
+        if self.input_size != input_size || self.output_size != output_size {
+            return Err(Box::from(
+                "Input or output size mismatch during deserialization",
+            ));
+        }
+
+        let weights_count = input_size * output_size;
+        let biases_count = output_size;
+
+        let mut host_vec_weights = vec![0.0f32; weights_count];
+        for value in &mut host_vec_weights {
+            let mut bytes = [0u8; 4];
+            reader.read_exact(&mut bytes)?;
+            *value = f32::from_le_bytes(bytes);
+        }
+
+        let mut host_vec_biases = vec![0.0f32; biases_count];
+        for value in &mut host_vec_biases {
+            let mut bytes = [0u8; 4];
+            reader.read_exact(&mut bytes)?;
+            *value = f32::from_le_bytes(bytes);
+        }
+
+        self.weights.copy_from(&host_vec_weights)?;
+        self.biases.copy_from(&host_vec_biases)?;
+
+        Ok(())
     }
 }

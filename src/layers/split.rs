@@ -215,4 +215,22 @@ impl Layer for SplitLayer {
     fn get_output_size(&self) -> usize {
         self.output_size_a + self.output_size_b
     }
+
+    fn serialize_parameters(
+        &self,
+        writer: &mut dyn std::io::Write,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        self.layer_a.serialize_parameters(writer)?;
+        self.layer_b.serialize_parameters(writer)?;
+        Ok(())
+    }
+
+    fn deserialize_parameters(
+        &mut self,
+        reader: &mut dyn std::io::Read,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        self.layer_a.deserialize_parameters(reader)?;
+        self.layer_b.deserialize_parameters(reader)?;
+        Ok(())
+    }
 }

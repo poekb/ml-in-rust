@@ -120,4 +120,20 @@ impl Layer for ActivationLayer {
     fn get_output_size(&self) -> usize {
         self.size
     }
+
+    fn serialize_parameters(
+        &self,
+        _writer: &mut dyn std::io::Write,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        // ReLU does not have parameters to serialize, so this is a no-op
+        Ok(())
+    }
+
+    fn deserialize_parameters(
+        &mut self,
+        _reader: &mut dyn std::io::Read,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        // ReLU does not have parameters to deserialize, so this is a no-op
+        Ok(())
+    }
 }

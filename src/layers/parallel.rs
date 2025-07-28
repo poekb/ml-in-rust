@@ -199,7 +199,7 @@ impl Layer for ParallelLayer {
     fn back_propagate(
         &mut self,
         input_gradient: &DeviceBuffer<f32>,
-        _input: &DeviceBuffer<f32>, // Input is buffered when di
+        _input: &DeviceBuffer<f32>, // Input is buffered when duplicated in the forward pass
         output_gradient: &DeviceBuffer<f32>,
         stream: Option<&cust::stream::Stream>,
     ) -> Result<(), Box<dyn std::error::Error>> {
@@ -328,5 +328,23 @@ impl Layer for ParallelLayer {
 
     fn get_output_size(&self) -> usize {
         self.output_size
+    }
+
+    fn serialize_parameters(
+        &self,
+        writer: &mut dyn std::io::Write,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        self.layer_a.serialize_parameters(writer)?;
+        self.layer_b.serialize_parameters(writer)?;
+        Ok(())
+    }
+
+    fn deserialize_parameters(
+        &mut self,
+        reader: &mut dyn std::io::Read,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        self.layer_a.deserialize_parameters(reader)?;
+        self.layer_b.deserialize_parameters(reader)?;
+        Ok(())
     }
 }
